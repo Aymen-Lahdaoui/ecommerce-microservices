@@ -1,29 +1,27 @@
 package com.ecommerce.authservice.entity;
 
-import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
 
-@Entity
-@Table(name = "users")
+@Document(collection = "users") // Remplace @Entity et @Table
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 public class User {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id; // Identifiant unique de l'utilisateur (généré automatiquement)
+    private String id; // Les ID dans MongoDB sont généralement des String (ObjectId)
 
-    @Column(unique = true, nullable = false)
-    private String username; // Nom d'utilisateur (doit être unique)
+    @Field("username")
+    private String username; // Nom d'utilisateur
 
-    @Column(nullable = false)
-    private String email; // Adresse e-mail de l'utilisateur
+    private String email;
 
-    @Column(nullable = false)
-    private String password; // Le mot de passe (qui sera stocké sous forme hachée avec BCrypt pour la sécurité)
+    private String password;
 
-    private String role; // Le rôle de l'utilisateur (ex: "USER" ou "ADMIN")
+    private String role; // Champ indispensable pour l'authentification et les rôles (ex: USER, ADMIN)
 }

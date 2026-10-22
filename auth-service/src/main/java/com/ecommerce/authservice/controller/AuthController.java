@@ -21,7 +21,7 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
-    // Route pour se connecter et récupérer le JWT : POST /api/auth/login
+    // Route pour se connecter : POST /api/auth/login
     @PostMapping("/login")
     public ResponseEntity<String> login(@RequestBody LoginRequest request) {
         String token = authService.login(request);

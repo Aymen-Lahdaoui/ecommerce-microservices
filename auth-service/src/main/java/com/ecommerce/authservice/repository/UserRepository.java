@@ -1,14 +1,14 @@
 package com.ecommerce.authservice.repository;
 
 import com.ecommerce.authservice.entity.User;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
 @Repository
-public interface UserRepository extends JpaRepository<User, Long> {
+public interface UserRepository extends MongoRepository<User, String> {
 
-    // Méthode magique générée par Spring : permet de chercher un utilisateur par son username
+    // Méthode pour chercher un utilisateur par son username
     Optional<User> findByUsername(String username);
 }
