@@ -2,6 +2,7 @@ package com.ecommerce.api_gateway.filter;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
@@ -15,29 +16,35 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.security.Key;
+import java.nio.charset.StandardCharsets;
 
-@Component
-public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAuthenticationFilter.Config> {
+@Component("JwtAuthentication")
+public class JwtAuthenticationGatewayFilterFactory extends AbstractGatewayFilterFactory<JwtAuthenticationGatewayFilterFactory.Config> {
 
     @Value("${jwt.secret}")
     private String secretKey;
 
-    public JwtAuthenticationFilter() {
+    public JwtAuthenticationGatewayFilterFactory() {
         super(Config.class);
     }
 
     @Override
     public GatewayFilter apply(Config config) {
         return (exchange, chain) -> {
+            System.out.println(">>> 1. REQUÊTE REÇUE DANS LE FILTRE JWT !");
             ServerHttpRequest request = exchange.getRequest();
 
             // 1. Vérifier si le header Authorization est présent
             if (!request.getHeaders().containsKey(HttpHeaders.AUTHORIZATION)) {
+                System.out.println(">>> ERREUR : Header Authorization manquant !");
                 return onError(exchange, "Missing Authorization Header", HttpStatus.UNAUTHORIZED);
             }
 
             String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+            System.out.println(">>> Header Authorization trouvé : " + authHeader);
+
             if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                System.out.println(">>> ERREUR : Format du header invalide (ne commence pas par Bearer ) !");
                 return onError(exchange, "Invalid Authorization Header Format", HttpStatus.UNAUTHORIZED);
             }
 
@@ -45,13 +52,16 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
 
             try {
                 // 2. Valider le token JWT avec la clé secrète
+                System.out.println(">>> Tentative de validation du token...");
                 Claims claims = Jwts.parserBuilder()
                         .setSigningKey(getSignKey())
                         .build()
                         .parseClaimsJws(token)
                         .getBody();
+                System.out.println(">>> SUCCÈS : Token JWT valide !");
 
             } catch (Exception e) {
+                System.out.println(">>> EXCEPTION JWT CATCHÉE : " + e.getClass().getName() + " -> " + e.getMessage());
                 return onError(exchange, "Invalid or Expired JWT Token", HttpStatus.UNAUTHORIZED);
             }
 
@@ -61,7 +71,8 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
     }
 
     private Key getSignKey() {
-        byte[] keyBytes = secretKey.getBytes();
+        // Utilisation du décodage Base64 pour correspondre rigoureusement à l'auth-service
+        byte[] keyBytes = Decoders.BASE64.decode(secretKey);
         return Keys.hmacShaKeyFor(keyBytes);
     }
 

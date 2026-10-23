@@ -15,15 +15,16 @@ spring:
           uri: lb://auth-service
           predicates:
             - Path=/api/auth/**
+
         - id: product-service-route
           uri: lb://product-service
           predicates:
             - Path=/api/products/**
           filters:
-            - JwtAuthenticationFilter
+            - name: JwtAuthentication
 
 jwt:
-  secret: MaCleSecreteSuperSecuriseeEtAssezLonguePourHS512DansMonApplicationEcommerceDeTest
+  secret: 5367566B59703373367639792F423F4528482B4D6251655468576D5A71347437
 
 eureka:
   client:
