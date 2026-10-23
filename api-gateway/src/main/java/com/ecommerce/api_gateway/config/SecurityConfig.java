@@ -7,16 +7,16 @@ import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 
 @Configuration
-@EnableWebFluxSecurity // 📌 Important car l'API Gateway tourne sur WebFlux (Reactive) et non Web MVC
+@EnableWebFluxSecurity
 public class SecurityConfig {
 
     @Bean
     public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
-        http
-                .csrf(csrf -> csrf.disable()) // Désactive le CSRF
+        return http
+                .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .authorizeExchange(exchanges -> exchanges
-                        .anyExchange().permitAll() // 🔓 Laisse passer tout à travers le Gateway (le filtrage JWT se fait via ton GatewayFilter)
-                );
-        return http.build();
+                        .anyExchange().permitAll()
+                )
+                .build();
     }
 }

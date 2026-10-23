@@ -21,8 +21,11 @@ public class JwtService {
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
-    public String generateToken(String username) {
+    // 🟢 Modification de la méthode pour accepter le rôle en paramètre
+    public String generateToken(String username, String role) {
         Map<String, Object> claims = new HashMap<>();
+        claims.put("role", role); // On ajoute le rôle dans les claims du JWT
+
         return Jwts.builder()
                 .claims(claims)
                 .subject(username)
