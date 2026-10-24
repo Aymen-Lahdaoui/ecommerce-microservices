@@ -20,6 +20,11 @@ spring:
           uri: lb://product-service
           predicates:
             - Path=/api/products/**
+
+        - id: cart-service-route
+          uri: lb://cart-service
+          predicates:
+            - Path=/api/cart/**
           filters:
             - name: JwtAuthentication
 

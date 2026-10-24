@@ -1,0 +1,14 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: cart-service
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/cart_db
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
