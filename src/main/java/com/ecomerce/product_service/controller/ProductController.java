@@ -18,37 +18,66 @@ public class ProductController {
         this.productService = productService;
     }
 
-    // 1. Récupérer tous les produits (GET /api/products)
     @GetMapping
     public ResponseEntity<List<Product>> getAllProducts() {
         return ResponseEntity.ok(productService.getAllProducts());
     }
 
-    // 2. Créer un produit (POST /api/products)
+    @GetMapping("/{id}")
+    public ResponseEntity<Product> getProductById(@PathVariable String id) {
+        return ResponseEntity.ok(productService.getProductById(id));
+    }
+
     @PostMapping
-    public ResponseEntity<Product> createProduct(@RequestBody Product product) {
+    public ResponseEntity<?> createProduct(
+            @RequestBody Product product,
+            @RequestHeader(value = "X-Auth-Role", required = false) String role) {
+
+        if (role == null || !role.equals("ADMIN")) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body("Accès refusé : Seuls les administrateurs peuvent ajouter des produits.");
+        }
+
         Product createdProduct = productService.createProduct(product);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdProduct);
     }
 
-    // 3. Récupérer un produit par ID (GET /api/products/{id})
-    @GetMapping("/{id}")
-    public ResponseEntity<Product> getProductById(@PathVariable Long id) {
-        Product product = productService.getProductById(id);
-        return ResponseEntity.ok(product);
-    }
-
-    // 4. Mettre à jour un produit (PUT /api/products/{id})
     @PutMapping("/{id}")
-    public ResponseEntity<Product> updateProduct(@PathVariable Long id, @RequestBody Product productDetails) {
+    public ResponseEntity<?> updateProduct(
+            @PathVariable String id,
+            @RequestBody Product productDetails,
+            @RequestHeader(value = "X-Auth-Role", required = false) String role) {
+
+        if (role == null || !role.equals("ADMIN")) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body("Accès refusé : Seuls les administrateurs peuvent modifier des produits.");
+        }
+
         Product updatedProduct = productService.updateProduct(id, productDetails);
         return ResponseEntity.ok(updatedProduct);
     }
 
-    // 5. Supprimer un produit (DELETE /api/products/{id})
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteProduct(@PathVariable Long id) {
+    public ResponseEntity<?> deleteProduct(
+            @PathVariable String id,
+            @RequestHeader(value = "X-Auth-Role", required = false) String role) {
+
+        if (role == null || !role.equals("ADMIN")) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body("Accès refusé : Seuls les administrateurs peuvent supprimer des produits.");
+        }
+
         productService.deleteProduct(id);
-        return ResponseEntity.noContent().build(); // Renvoie un code 204 No Content
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{id}/reduce-stock")
+    public ResponseEntity<?> reduceStock(@PathVariable String id, @RequestParam int quantity) {
+        try {
+            productService.reduceStock(id, quantity);
+            return ResponseEntity.ok("Stock réduit avec succès");
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 }

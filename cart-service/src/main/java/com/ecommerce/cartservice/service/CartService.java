@@ -1,5 +1,7 @@
 package com.ecommerce.cartservice.service;
 
+import com.ecommerce.cartservice.client.ProductClient;
+import com.ecommerce.cartservice.dto.ProductDto;
 import com.ecommerce.cartservice.model.Cart;
 import com.ecommerce.cartservice.repository.CartRepository;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +14,7 @@ import java.util.ArrayList;
 public class CartService {
 
     private final CartRepository cartRepository;
+    private final ProductClient productClient; // 👈 Injecté pour interroger le product-service
 
     public Cart getCartByUserId(String userId) {
         return cartRepository.findByUserId(userId)
@@ -24,6 +27,18 @@ public class CartService {
     }
 
     public Cart addToCart(String userId, Cart.CartItem newItem) {
+        // 1. Récupérer le produit et son stock via OpenFeign
+        ProductDto product = productClient.getProductById(newItem.getProductId());
+
+        if (product == null) {
+            throw new RuntimeException("Produit introuvable.");
+        }
+
+        // 2. Vérifier si le produit est en rupture de stock ("Out of stock")
+        if (product.getStock() <= 0) {
+            throw new RuntimeException("Out of stock : Impossible d'ajouter ce produit car il est en rupture de stock.");
+        }
+
         Cart cart = cartRepository.findByUserId(userId)
                 .orElseGet(() -> {
                     Cart newCart = new Cart();
@@ -36,10 +51,26 @@ public class CartService {
             cart.setItems(new ArrayList<>());
         }
 
+        // Calculer la quantité totale demandée (panier actuel + nouvel ajout)
+        int existingQuantityInCart = 0;
+        for (Cart.CartItem item : cart.getItems()) {
+            if (item.getProductId() != null && item.getProductId().trim().equals(newItem.getProductId().trim())) {
+                existingQuantityInCart = item.getQuantity();
+                break;
+            }
+        }
+
+        int totalRequestedQuantity = existingQuantityInCart + newItem.getQuantity();
+
+        // 3. Vérifier si la quantité totale demandée dépasse le stock disponible
+        if (product.getStock() < totalRequestedQuantity) {
+            throw new RuntimeException("Stock insuffisant ! Stock disponible : " + product.getStock());
+        }
+
         boolean productExists = false;
         for (Cart.CartItem item : cart.getItems()) {
             if (item.getProductId() != null && item.getProductId().trim().equals(newItem.getProductId().trim())) {
-                item.setQuantity(item.getQuantity() + newItem.getQuantity());
+                item.setQuantity(totalRequestedQuantity);
                 productExists = true;
                 break;
             }

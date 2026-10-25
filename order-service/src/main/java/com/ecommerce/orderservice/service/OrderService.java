@@ -1,6 +1,7 @@
 package com.ecommerce.orderservice.service;
 
 import com.ecommerce.orderservice.client.CartClient;
+import com.ecommerce.orderservice.client.ProductClient;
 import com.ecommerce.orderservice.dto.OrderRequestDto;
 import com.ecommerce.orderservice.entity.Order;
 import com.ecommerce.orderservice.repository.OrderRepository;
@@ -20,6 +21,9 @@ public class OrderService {
 
     @Autowired
     private CartClient cartClient;
+
+    @Autowired
+    private ProductClient productClient; // 👈 Injecte le client pour gérer le stock
 
     public Order createOrderAndPay(String userId, OrderRequestDto orderRequest) {
         // 1. Récupérer le panier via Feign
@@ -59,7 +63,15 @@ public class OrderService {
             // Sauvegarde de la commande
             Order savedOrder = orderRepository.save(order);
 
-            // Vider le panier via Feign si le paiement réussit
+            // 5. Réduire le stock de chaque produit acheté via Feign
+            for (Map<String, Object> item : items) {
+                String productId = (String) item.get("productId");
+                int quantity = Integer.parseInt(item.get("quantity").toString());
+
+                productClient.reduceStock(productId, quantity);
+            }
+
+            // 6. Vider le panier via Feign si le paiement réussit
             cartClient.clearCart(userId);
 
             return savedOrder;

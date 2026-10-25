@@ -25,8 +25,11 @@ spring:
           uri: lb://cart-service
           predicates:
             - Path=/api/cart/**
-          filters:
-            - name: JwtAuthentication
+
+        - id: order-service-route
+          uri: lb://ORDER-SERVICE
+          predicates:
+            - Path=/api/orders/**
 
 jwt:
   secret: 5367566B59703373367639792F423F4528482B4D6251655468576D5A71347437

@@ -23,25 +23,36 @@ public class ProductService {
         return productRepository.save(product);
     }
 
-    public Product getProductById(Long id) {
+    public Product getProductById(String id) {
         return productRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Produit non trouvé avec l'ID : " + id));
     }
 
-    // NOUVEAU : Mise à jour d'un produit
-    public Product updateProduct(Long id, Product productDetails) {
-        Product existingProduct = getProductById(id); // Vérifie s'il existe
+    public Product updateProduct(String id, Product productDetails) {
+        Product existingProduct = getProductById(id);
 
         existingProduct.setName(productDetails.getName());
         existingProduct.setDescription(productDetails.getDescription());
         existingProduct.setPrice(productDetails.getPrice());
+        existingProduct.setStock(productDetails.getStock());
 
         return productRepository.save(existingProduct);
     }
 
-    // NOUVEAU : Suppression d'un produit
-    public void deleteProduct(Long id) {
-        Product product = getProductById(id); // Vérifie s'il existe avant de supprimer
+    public void deleteProduct(String id) {
+        Product product = getProductById(id);
         productRepository.delete(product);
+    }
+
+    public void reduceStock(String productId, int quantityToReduce) {
+        Product product = getProductById(productId);
+
+        if (product.getStock() < quantityToReduce) {
+            throw new RuntimeException("Stock insuffisant pour le produit : " + product.getName()
+                    + " (Stock disponible : " + product.getStock() + ", Demandé : " + quantityToReduce + ")");
+        }
+
+        product.setStock(product.getStock() - quantityToReduce);
+        productRepository.save(product);
     }
 }
