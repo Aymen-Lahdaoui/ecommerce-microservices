@@ -73,4 +73,19 @@ public class CartController {
 
         return ResponseEntity.ok(cartService.decreaseItemQuantity(userId, productId, quantity));
     }
+
+    @DeleteMapping
+    public ResponseEntity<?> clearCart(
+            @RequestHeader("X-Auth-User") String userId,
+            @RequestHeader(value = "X-Auth-Role", required = false) String role) {
+
+        // Empêcher un ADMIN de modifier un panier
+        if ("ROLE_ADMIN".equals(role)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body("Les administrateurs ne peuvent pas modifier de panier.");
+        }
+
+        cartService.clearCart(userId);
+        return ResponseEntity.ok("Panier vidé avec succès.");
+    }
 }

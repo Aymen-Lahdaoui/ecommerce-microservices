@@ -96,6 +96,11 @@ public class CartService {
         return saveOrDeleteCart(cart, userId);
     }
 
+    // 3. VIDAGE TOTAL DU PANIER
+    public void clearCart(String userId) {
+        cartRepository.findByUserId(userId).ifPresent(cartRepository::delete);
+    }
+
     // Méthode utilitaire pour effacer le document MongoDB si le panier est vide
     private Cart saveOrDeleteCart(Cart cart, String userId) {
         if (cart.getItems() == null || cart.getItems().isEmpty()) {
