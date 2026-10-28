@@ -6,8 +6,10 @@ import com.ecommerce.orderservice.dto.OrderRequestDto;
 import com.ecommerce.orderservice.entity.Order;
 import com.ecommerce.orderservice.entity.OrderHistory;
 import com.ecommerce.orderservice.entity.OrderItem;
+import com.ecommerce.orderservice.event.OrderCreatedEvent;
 import com.ecommerce.orderservice.repository.OrderHistoryRepository;
 import com.ecommerce.orderservice.repository.OrderRepository;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -31,6 +33,9 @@ public class OrderService {
 
     @Autowired
     private ProductClient productClient;
+
+    @Autowired
+    private RabbitTemplate rabbitTemplate;
 
     public Order createOrderAndPay(String userId, OrderRequestDto orderRequest) {
         // 1. Récupérer le panier via Feign
@@ -87,13 +92,14 @@ public class OrderService {
 
             orderHistoryRepository.save(historyEntry);
 
-            // 5. Réduire le stock de chaque produit acheté via Feign
-            for (OrderItem orderItem : orderItems) {
-                productClient.reduceStock(orderItem.getProductId(), orderItem.getQuantity());
-            }
+            // 5. Publier l'événement de commande payée de manière asynchrone via RabbitMQ
+            OrderCreatedEvent event = new OrderCreatedEvent(
+                    savedOrder.getId(),
+                    userId,
+                    orderItems
+            );
 
-            // 6. Vider le panier via Feign si le paiement réussit
-            cartClient.clearCart(userId);
+            rabbitTemplate.convertAndSend("order-events-exchange", "order.created", event);
 
             return savedOrder;
         } else {
@@ -109,7 +115,7 @@ public class OrderService {
         return request.getCardNumber().trim().length() == 16;
     }
 
-    // 7. Récupérer l'historique des commandes réussies depuis la collection dédiée
+    // 6. Récupérer l'historique des commandes réussies depuis la collection dédiée
     public List<OrderHistory> getUserSuccessfulOrders(String userId) {
         return orderHistoryRepository.findByUserId(userId);
     }
