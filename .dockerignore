@@ -1,0 +1,6 @@
+**/.git
+**/.idea
+**/*.iml
+**/src/test
+**/mvnw
+**/mvnw.cmd
