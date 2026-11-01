@@ -129,7 +129,19 @@ public class CartService {
 
     // 3. VIDAGE TOTAL DU PANIER
     public void clearCart(String userId) {
-        cartRepository.findByUserId(userId).ifPresent(cartRepository::delete);
+        System.out.println(">>> CartService: Demande de vidage du panier pour userId : [" + userId + "]");
+        cartRepository.findByUserId(userId).ifPresentOrElse(cart -> {
+            if (cart.getItems() != null) {
+                cart.getItems().clear();
+            } else {
+                cart.setItems(new ArrayList<>());
+            }
+            cartRepository.save(cart);
+            cartRepository.delete(cart);
+            System.out.println(">>> CartService: Panier vidé et supprimé de MongoDB avec succès pour userId : [" + userId + "]");
+        }, () -> {
+            System.out.println(">>> CartService: Aucun panier trouvé dans MongoDB pour userId : [" + userId + "]");
+        });
     }
 
     // Méthode utilitaire pour effacer le document MongoDB si le panier est vide

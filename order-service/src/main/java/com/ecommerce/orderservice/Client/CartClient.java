@@ -12,5 +12,5 @@ public interface CartClient {
     Object getCart(@RequestHeader("X-Auth-User") String userId);
 
     @DeleteMapping("/api/cart")
-    void clearCart(@RequestHeader("X-Auth-User") String userId);
+    Object clearCart(@RequestHeader("X-Auth-User") String userId);
 }

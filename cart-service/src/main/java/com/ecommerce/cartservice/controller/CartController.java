@@ -19,6 +19,8 @@ public class CartController {
             @RequestHeader("X-Auth-User") String userId,
             @RequestHeader(value = "X-Auth-Role", required = false) String role) {
 
+        System.out.println(">>> CartController: GET /api/cart reçu pour userId : [" + userId + "]");
+
         // Bloquer l'admin s'il essaie d'accéder au panier
         if ("ROLE_ADMIN".equals(role)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -33,6 +35,8 @@ public class CartController {
             @RequestHeader("X-Auth-User") String userId,
             @RequestHeader(value = "X-Auth-Role", required = false) String role,
             @RequestBody Cart.CartItem item) {
+
+        System.out.println(">>> CartController: POST /api/cart/add reçu pour userId : [" + userId + "]");
 
         // Empêcher un ADMIN d'ajouter des articles au panier
         if ("ROLE_ADMIN".equals(role)) {
@@ -78,6 +82,8 @@ public class CartController {
     public ResponseEntity<?> clearCart(
             @RequestHeader("X-Auth-User") String userId,
             @RequestHeader(value = "X-Auth-Role", required = false) String role) {
+
+        System.out.println(">>> CartController: DELETE /api/cart reçu pour userId : [" + userId + "]");
 
         // Empêcher un ADMIN de modifier un panier
         if ("ROLE_ADMIN".equals(role)) {

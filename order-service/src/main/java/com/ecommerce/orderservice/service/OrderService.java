@@ -39,6 +39,7 @@ public class OrderService {
 
     public Order createOrderAndPay(String userId, OrderRequestDto orderRequest) {
         // 1. Récupérer le panier via Feign
+        System.out.println(">>> OrderService: Récupération du panier pour userId : [" + userId + "]");
         Map<String, Object> cart = (Map<String, Object>) cartClient.getCart(userId);
 
         if (cart == null || cart.get("items") == null) {
@@ -78,10 +79,10 @@ public class OrderService {
             order.setStatus("PAID");
             order.setPaymentTransactionId(UUID.randomUUID().toString());
 
-            // Sauvegarde de la commande classique
+            // Sauvegarde de la commande
             Order savedOrder = orderRepository.save(order);
 
-            // Sauvegarde dédiée dans la table/collection de l'historique (order_history)
+            // Sauvegarde dans l'historique
             OrderHistory historyEntry = new OrderHistory();
             historyEntry.setUserId(userId);
             historyEntry.setItems(orderItems);
@@ -89,20 +90,35 @@ public class OrderService {
             historyEntry.setOrderDate(order.getOrderDate());
             historyEntry.setStatus("PAID");
             historyEntry.setPaymentTransactionId(order.getPaymentTransactionId());
-
             orderHistoryRepository.save(historyEntry);
 
-            // 5. Publier l'événement de commande payée de manière asynchrone via RabbitMQ
-            OrderCreatedEvent event = new OrderCreatedEvent(
-                    savedOrder.getId(),
-                    userId,
-                    orderItems
-            );
+            // 5. Vider le panier après une commande réussie via Feign
+            try {
+                System.out.println(">>> OrderService: Appel direct cartClient.clearCart pour userId : [" + userId + "]");
+                cartClient.clearCart(userId);
+                System.out.println(">>> OrderService: cartClient.clearCart réussi !");
+            } catch (Exception e) {
+                System.err.println(">>> Avertissement : échec vidage panier via Feign : " + e.getMessage());
+                e.printStackTrace();
+            }
 
+            // 6. Publier l'événement RabbitMQ (décrémentation du stock et vidage async panier)
+            List<OrderCreatedEvent.OrderItemDto> eventItems = new ArrayList<>();
+            for (OrderItem oi : orderItems) {
+                eventItems.add(new OrderCreatedEvent.OrderItemDto(
+                        oi.getProductId(),
+                        oi.getQuantity(),
+                        oi.getPrice()
+                ));
+            }
+            OrderCreatedEvent event = new OrderCreatedEvent(savedOrder.getId(), userId, eventItems);
+            System.out.println(">>> OrderService: Publication événement order.created sur RabbitMQ...");
             rabbitTemplate.convertAndSend("order-events-exchange", "order.created", event);
 
             return savedOrder;
+
         } else {
+            // Paiement échoué → panier conservé intact
             order.setStatus("PAYMENT_FAILED");
             return orderRepository.save(order);
         }
@@ -115,7 +131,7 @@ public class OrderService {
         return request.getCardNumber().trim().length() == 16;
     }
 
-    // 6. Récupérer l'historique des commandes réussies depuis la collection dédiée
+    // Récupérer l'historique des commandes réussies depuis la collection dédiée
     public List<OrderHistory> getUserSuccessfulOrders(String userId) {
         return orderHistoryRepository.findByUserId(userId);
     }

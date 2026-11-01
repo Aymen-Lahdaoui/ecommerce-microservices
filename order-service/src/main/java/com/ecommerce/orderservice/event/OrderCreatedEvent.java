@@ -1,47 +1,58 @@
 package com.ecommerce.orderservice.event;
 
-import com.ecommerce.orderservice.entity.OrderItem;
 import java.io.Serializable;
 import java.util.List;
 
+/**
+ * Événement publié sur RabbitMQ après une commande payée.
+ * Les items utilisent un DTO interne allégé (productId + quantity + price)
+ * compatible avec la désérialisation dans product-service et cart-service.
+ */
 public class OrderCreatedEvent implements Serializable {
+
     private String orderId;
     private String userId;
-    private List<OrderItem> items;
+    private List<OrderItemDto> items;
 
-    // Constructeur vide (néentiel pour la sérialisation JSON/AMQP)
-    public OrderCreatedEvent() {
-    }
+    public OrderCreatedEvent() {}
 
-    // Constructeur avec paramètres
-    public OrderCreatedEvent(String orderId, String userId, List<OrderItem> items) {
+    public OrderCreatedEvent(String orderId, String userId, List<OrderItemDto> items) {
         this.orderId = orderId;
-        this.userId = userId;
-        this.items = items;
+        this.userId  = userId;
+        this.items   = items;
     }
 
-    // Getters et Setters
-    public String getOrderId() {
-        return orderId;
-    }
+    // Getters / Setters
+    public String getOrderId()                  { return orderId; }
+    public void   setOrderId(String orderId)    { this.orderId = orderId; }
 
-    public void setOrderId(String orderId) {
-        this.orderId = orderId;
-    }
+    public String getUserId()                   { return userId; }
+    public void   setUserId(String userId)      { this.userId = userId; }
 
-    public String getUserId() {
-        return userId;
-    }
+    public List<OrderItemDto> getItems()              { return items; }
+    public void               setItems(List<OrderItemDto> items) { this.items = items; }
 
-    public void setUserId(String userId) {
-        this.userId = userId;
-    }
+    // ── DTO interne ──────────────────────────────────────────────────────────
+    public static class OrderItemDto implements Serializable {
+        private String productId;
+        private int    quantity;
+        private double price;
 
-    public List<OrderItem> getItems() {
-        return items;
-    }
+        public OrderItemDto() {}
 
-    public void setItems(List<OrderItem> items) {
-        this.items = items;
+        public OrderItemDto(String productId, int quantity, double price) {
+            this.productId = productId;
+            this.quantity  = quantity;
+            this.price     = price;
+        }
+
+        public String getProductId()                { return productId; }
+        public void   setProductId(String productId){ this.productId = productId; }
+
+        public int  getQuantity()                   { return quantity; }
+        public void setQuantity(int quantity)       { this.quantity = quantity; }
+
+        public double getPrice()                    { return price; }
+        public void   setPrice(double price)        { this.price = price; }
     }
 }
