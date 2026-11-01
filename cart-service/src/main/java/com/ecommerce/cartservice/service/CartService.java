@@ -4,6 +4,8 @@ import com.ecommerce.cartservice.client.ProductClient;
 import com.ecommerce.cartservice.dto.ProductDto;
 import com.ecommerce.cartservice.model.Cart;
 import com.ecommerce.cartservice.repository.CartRepository;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -26,6 +28,9 @@ public class CartService {
                 });
     }
 
+    // ── Ajout avec Circuit Breaker & Retry ────────────────────────────────────
+    @CircuitBreaker(name = "productService", fallbackMethod = "addToCartFallback")
+    @Retry(name = "productService")
     public Cart addToCart(String userId, Cart.CartItem newItem) {
         // 1. Récupérer le produit et son stock via OpenFeign
         ProductDto product = productClient.getProductById(newItem.getProductId());
@@ -81,6 +86,16 @@ public class CartService {
         }
 
         return cartRepository.save(cart);
+    }
+
+    /**
+     * Méthode de Fallback exécutée automatiquement par Resilience4j quand :
+     * - product-service est éteint ou ne répond pas
+     * - le circuit breaker passe en statut OUVERT (Open State)
+     */
+    public Cart addToCartFallback(String userId, Cart.CartItem newItem, Throwable throwable) {
+        System.err.println(">>> [CIRCUIT BREAKER - cart-service] Échec d'accès au product-service : " + throwable.getMessage());
+        throw new RuntimeException("Le service catalogue est temporairement indisponible. Impossible de vérifier le produit. Veuillez réessayer dans quelques instants.");
     }
 
     // 1. SUPPRESSION TOTALE DE L'ARTICLE

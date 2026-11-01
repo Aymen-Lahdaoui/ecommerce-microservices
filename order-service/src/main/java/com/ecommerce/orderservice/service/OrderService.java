@@ -9,6 +9,8 @@ import com.ecommerce.orderservice.entity.OrderItem;
 import com.ecommerce.orderservice.event.OrderCreatedEvent;
 import com.ecommerce.orderservice.repository.OrderHistoryRepository;
 import com.ecommerce.orderservice.repository.OrderRepository;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -37,6 +39,9 @@ public class OrderService {
     @Autowired
     private RabbitTemplate rabbitTemplate;
 
+    // ── Commande & Paiement protégés par Circuit Breaker et Retry ────────────
+    @CircuitBreaker(name = "cartService", fallbackMethod = "createOrderFallback")
+    @Retry(name = "cartService")
     public Order createOrderAndPay(String userId, OrderRequestDto orderRequest) {
         // 1. Récupérer le panier via Feign
         System.out.println(">>> OrderService: Récupération du panier pour userId : [" + userId + "]");
@@ -122,6 +127,16 @@ public class OrderService {
             order.setStatus("PAYMENT_FAILED");
             return orderRepository.save(order);
         }
+    }
+
+    /**
+     * Méthode de Fallback exécutée automatiquement par Resilience4j quand :
+     * - cart-service est éteint ou ne répond pas
+     * - le circuit breaker passe en statut OUVERT (Open State)
+     */
+    public Order createOrderFallback(String userId, OrderRequestDto orderRequest, Throwable throwable) {
+        System.err.println(">>> [CIRCUIT BREAKER - order-service] Échec d'accès au cart-service : " + throwable.getMessage());
+        throw new RuntimeException("Le service de panier est temporairement inaccessible. Votre commande n'a pas été débitée. Veuillez réessayer dans quelques instants.");
     }
 
     private boolean processPayment(OrderRequestDto request) {
