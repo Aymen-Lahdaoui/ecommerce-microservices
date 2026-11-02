@@ -4,6 +4,7 @@ import com.ecommerce.authservice.dto.LoginRequest;
 import com.ecommerce.authservice.dto.RegisterRequest;
 import com.ecommerce.authservice.service.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,5 +27,11 @@ public class AuthController {
     public ResponseEntity<String> login(@RequestBody LoginRequest request) {
         String token = authService.login(request);
         return ResponseEntity.ok(token);
+    }
+
+    // Gestion propre des erreurs de connexion (évite le 403 silencieux)
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<String> handleAuthError(RuntimeException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ex.getMessage());
     }
 }

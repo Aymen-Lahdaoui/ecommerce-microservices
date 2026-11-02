@@ -5,7 +5,7 @@ import com.ecommerce.authservice.dto.RegisterRequest;
 import com.ecommerce.authservice.entity.User;
 import com.ecommerce.authservice.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.crypto.password.PasswordEncoder; // Si tu utilises BCrypt
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -15,33 +15,43 @@ public class AuthService {
     private UserRepository userRepository;
 
     @Autowired
-    private JwtService jwtService; // 👈 Injection de JwtService
+    private JwtService jwtService;
 
-    // Optionnel si tu encodes les mots de passe à l'inscription/connexion
-    // @Autowired
-    // private PasswordEncoder passwordEncoder;
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     public String register(RegisterRequest request) {
+        if (userRepository.findByUsername(request.getUsername()).isPresent()) {
+            throw new RuntimeException("Le nom d'utilisateur '" + request.getUsername() + "' est déjà pris.");
+        }
+
         User user = new User();
         user.setUsername(request.getUsername());
         user.setEmail(request.getEmail());
-        // user.setPassword(passwordEncoder.encode(request.getPassword())); // Encodage recommandé
-        user.setPassword(request.getPassword());
-        user.setRole("USER"); // Par défaut, un nouvel inscrit est "USER"
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setRole(request.getRole() != null && !request.getRole().isBlank() ? request.getRole() : "USER");
 
         userRepository.save(user);
-        return "Utilisateur enregistré avec succès dans MongoDB !";
+        return "Utilisateur '" + user.getUsername() + "' enregistré avec succès dans MongoDB !";
     }
 
     public String login(LoginRequest request) {
-        // Recherche de l'utilisateur par son username
         User user = userRepository.findByUsername(request.getUsername())
-                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé : " + request.getUsername()));
 
-        // Vérification du mot de passe (décommente si tu utilises l'encoder)
-        // if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-        //     throw new RuntimeException("Mot de passe incorrect");
-        // }
+        // Supporte à la fois les mots de passe encodés en BCrypt et ceux en texte brut
+        boolean passwordMatches = false;
+        if (user.getPassword() != null) {
+            if (user.getPassword().startsWith("$2a$") || user.getPassword().startsWith("$2b$")) {
+                passwordMatches = passwordEncoder.matches(request.getPassword(), user.getPassword());
+            } else {
+                passwordMatches = user.getPassword().equals(request.getPassword());
+            }
+        }
+
+        if (!passwordMatches) {
+            throw new RuntimeException("Mot de passe incorrect.");
+        }
 
         // 🔑 Génération et retour du token JWT en passant le username ET le role
         return jwtService.generateToken(user.getUsername(), user.getRole());

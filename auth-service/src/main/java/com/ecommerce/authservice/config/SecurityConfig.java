@@ -21,7 +21,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable()) // 🔓 Désactive le CSRF pour autoriser les POST depuis Postman
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // API Stateless
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**").permitAll() // 🔓 Laisse entièrement libre l'accès au login/register
+                        .requestMatchers("/api/auth/**", "/error").permitAll() // 🔓 Laisse libre login/register et la page d'erreur
                         .anyRequest().authenticated()
                 );
         return http.build();

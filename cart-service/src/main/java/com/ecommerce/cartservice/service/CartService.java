@@ -4,10 +4,13 @@ import com.ecommerce.cartservice.client.ProductClient;
 import com.ecommerce.cartservice.dto.ProductDto;
 import com.ecommerce.cartservice.model.Cart;
 import com.ecommerce.cartservice.repository.CartRepository;
+import feign.FeignException;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
 
@@ -33,15 +36,23 @@ public class CartService {
     @Retry(name = "productService")
     public Cart addToCart(String userId, Cart.CartItem newItem) {
         // 1. Récupérer le produit et son stock via OpenFeign
-        ProductDto product = productClient.getProductById(newItem.getProductId());
+        ProductDto product;
+        try {
+            product = productClient.getProductById(newItem.getProductId());
+        } catch (FeignException.NotFound e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Produit introuvable avec l'ID : " + newItem.getProductId());
+        }
 
         if (product == null) {
-            throw new RuntimeException("Produit introuvable.");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Produit introuvable avec l'ID : " + newItem.getProductId());
         }
+
+        // Enrichir le CartItem avec le nom du produit récupéré depuis product-service
+        newItem.setProductName(product.getName());
 
         // 2. Vérifier si le produit est en rupture de stock ("Out of stock")
         if (product.getStock() <= 0) {
-            throw new RuntimeException("Out of stock : Impossible d'ajouter ce produit car il est en rupture de stock.");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Out of stock : Impossible d'ajouter ce produit car il est en rupture de stock.");
         }
 
         Cart cart = cartRepository.findByUserId(userId)
@@ -69,13 +80,15 @@ public class CartService {
 
         // 3. Vérifier si la quantité totale demandée dépasse le stock disponible
         if (product.getStock() < totalRequestedQuantity) {
-            throw new RuntimeException("Stock insuffisant ! Stock disponible : " + product.getStock());
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Stock insuffisant ! Stock disponible : " + product.getStock());
         }
 
         boolean productExists = false;
         for (Cart.CartItem item : cart.getItems()) {
             if (item.getProductId() != null && item.getProductId().trim().equals(newItem.getProductId().trim())) {
                 item.setQuantity(totalRequestedQuantity);
+                item.setProductName(product.getName()); // Met à jour le nom
+                item.setPrice(product.getPrice());      // Met à jour le prix
                 productExists = true;
                 break;
             }
@@ -94,8 +107,14 @@ public class CartService {
      * - le circuit breaker passe en statut OUVERT (Open State)
      */
     public Cart addToCartFallback(String userId, Cart.CartItem newItem, Throwable throwable) {
+        if (throwable instanceof ResponseStatusException rse) {
+            throw rse;
+        }
+        if (throwable instanceof FeignException.NotFound) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Produit introuvable avec l'ID : " + newItem.getProductId());
+        }
         System.err.println(">>> [CIRCUIT BREAKER - cart-service] Échec d'accès au product-service : " + throwable.getMessage());
-        throw new RuntimeException("Le service catalogue est temporairement indisponible. Impossible de vérifier le produit. Veuillez réessayer dans quelques instants.");
+        throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Le service catalogue est temporairement indisponible. Impossible de vérifier le produit. Veuillez réessayer dans quelques instants.");
     }
 
     // 1. SUPPRESSION TOTALE DE L'ARTICLE

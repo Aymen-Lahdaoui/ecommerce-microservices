@@ -5,7 +5,7 @@ services:
     container_name: mongodb
     restart: unless-stopped
     ports:
-      - "27017:27017"
+      - "27018:27017"
     volumes:
       - mongo_data:/data/db
 
@@ -22,6 +22,14 @@ services:
       - RABBITMQ_DEFAULT_PASS=guest
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+
+  # ─── INFRASTRUCTURE : DISTRIBUTED TRACING ZIPKIN ───────────────────────────
+  zipkin:
+    image: openzipkin/zipkin:latest
+    container_name: zipkin
+    restart: unless-stopped
+    ports:
+      - "9411:9411"
 
   # ─── 1. DISCOVERY SERVICE (EUREKA) ─────────────────────────────────────────
   discovery-service:
@@ -40,9 +48,11 @@ services:
       - "8088:8088"
     depends_on:
       - discovery-service
+      - zipkin
     environment:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
       - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
+      - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
 
   # ─── 3. AUTH SERVICE ───────────────────────────────────────────────────────
   auth-service:
@@ -70,11 +80,13 @@ services:
       - discovery-service
       - mongodb
       - rabbitmq
+      - zipkin
     environment:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
       - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
       - SPRING_DATA_MONGODB_URI=mongodb://mongodb:27017/product_db
       - SPRING_RABBITMQ_HOST=rabbitmq
+      - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
 
   # ─── 5. CART SERVICE ───────────────────────────────────────────────────────
   cart-service:
@@ -87,11 +99,13 @@ services:
       - discovery-service
       - mongodb
       - rabbitmq
+      - zipkin
     environment:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
       - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
       - SPRING_DATA_MONGODB_URI=mongodb://mongodb:27017/cart_db
       - SPRING_RABBITMQ_HOST=rabbitmq
+      - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
 
   # ─── 6. ORDER SERVICE ──────────────────────────────────────────────────────
   order-service:
@@ -104,11 +118,30 @@ services:
       - discovery-service
       - mongodb
       - rabbitmq
+      - zipkin
     environment:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
       - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
       - SPRING_DATA_MONGODB_URI=mongodb://mongodb:27017/order_db
       - SPRING_RABBITMQ_HOST=rabbitmq
+      - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
+
+  # ─── 7. NOTIFICATION SERVICE ───────────────────────────────────────────────
+  notification-service:
+    build: ./notification-service
+    container_name: notification-service
+    restart: unless-stopped
+    ports:
+      - "8084:8084"
+    depends_on:
+      - discovery-service
+      - rabbitmq
+      - zipkin
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-service:8761/eureka/
+      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
+      - SPRING_RABBITMQ_HOST=rabbitmq
+      - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
 
 volumes:
   mongo_data:

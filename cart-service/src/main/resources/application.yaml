@@ -6,17 +6,17 @@ spring:
     name: cart-service
   data:
     mongodb:
-      uri: mongodb://localhost:27017/cart_db
+      uri: ${SPRING_DATA_MONGODB_URI:mongodb://localhost:27017/cart_db}
   rabbitmq:
-    host: localhost
-    port: 5672
-    username: guest
-    password: guest
+    host: ${SPRING_RABBITMQ_HOST:localhost}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:guest}
+    password: ${SPRING_RABBITMQ_PASSWORD:guest}
 
 eureka:
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka/
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
 
 # ─── CONFIGURATION RESILIENCE4J ──────────────────────────────────────────────
 resilience4j:
@@ -29,6 +29,10 @@ resilience4j:
         wait-duration-in-open-state: 5s      # Reste ouvert pendant 5s avant de tester à nouveau
         failure-rate-threshold: 50           # S'ouvre si plus de 50% des appels échouent
         automatic-transition-from-open-to-half-open-enabled: true
+        ignore-exceptions:
+          - feign.FeignException.NotFound
+          - feign.FeignException$NotFound
+          - org.springframework.web.server.ResponseStatusException
   retry:
     instances:
       productService:
@@ -36,3 +40,16 @@ resilience4j:
         wait-duration: 500ms                 # Délai initial de 500ms
         enable-exponential-backoff: true     # Backoff exponentiel
         exponential-backoff-multiplier: 2    # 500ms, puis 1000ms
+        ignore-exceptions:
+          - feign.FeignException.NotFound
+          - feign.FeignException$NotFound
+          - org.springframework.web.server.ResponseStatusException
+
+# ─── DISTRIBUTED TRACING (ZIPKIN) ────────────────────────────────────────────
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: ${MANAGEMENT_ZIPKIN_TRACING_ENDPOINT:http://localhost:9411/api/v2/spans}
